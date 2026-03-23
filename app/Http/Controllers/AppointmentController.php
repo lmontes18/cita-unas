@@ -37,45 +37,45 @@ class AppointmentController extends Controller
     }
 
     public function update(Request $request, Appointment $appointment)
-{
-    $request->validate([
-        'services' => 'required|array',
-        'client_name' => 'required|string',
-        'date' => 'required|date',
-        'time' => 'required',
-    ]);
+    {
+        $request->validate([
+            'services' => 'required|array',
+            'client_name' => 'required|string',
+            'date' => 'required|date',
+            'time' => 'required',
+        ]);
 
-    $start = Carbon::parse($request->date . ' ' . $request->time);
-    $services = Service::find($request->services);
-    $totalMinutes = $services->sum('duration_minutes');
-    $end = $start->copy()->addMinutes($totalMinutes);
+        $start = Carbon::parse($request->date . ' ' . $request->time);
+        $services = Service::find($request->services);
+        $totalMinutes = $services->sum('duration_minutes');
+        $end = $start->copy()->addMinutes($totalMinutes);
 
-    // Validar conflictos ignorando la cita actual y las canceladas
-    $exists = Appointment::where('id', '!=', $appointment->id)
-        ->where('status', '!=', 'cancelled')
-        ->where(function ($query) use ($start, $end) {
-            $query->where('start_time', '<', $end)
-                  ->where('end_time', '>', $start);
-        })->exists();
+        // Validar conflictos ignorando la cita actual y las canceladas
+        $exists = Appointment::where('id', '!=', $appointment->id)
+            ->where('status', '!=', 'cancelled')
+            ->where(function ($query) use ($start, $end) {
+                $query->where('start_time', '<', $end)
+                    ->where('end_time', '>', $start);
+            })->exists();
 
-    if ($exists) {
-        return back()->withErrors(['time' => 'Ya hay una cita en ese horario.'])->withInput();
+        if ($exists) {
+            return back()->withErrors(['time' => 'Ya hay una cita en ese horario.'])->withInput();
+        }
+
+        // Actualizamos los datos. 
+        // IMPORTANTE: No toques el campo 'status' aquí para que no cambie a completed.
+        $appointment->update([
+            'client_name' => $request->client_name,
+            'client_phone' => $request->client_phone,
+            'start_time' => $start->format('Y-m-d H:i:s'),
+            'end_time' => $end->format('Y-m-d H:i:s'),
+            'notes' => $request->notes,
+        ]);
+
+        $appointment->services()->sync($request->services);
+
+        return redirect()->route('appointments.index')->with('success', 'Cita actualizada correctamente.');
     }
-
-    // Actualizamos los datos. 
-    // IMPORTANTE: No toques el campo 'status' aquí para que no cambie a completed.
-    $appointment->update([
-        'client_name' => $request->client_name,
-        'client_phone' => $request->client_phone,
-        'start_time' => $start,
-        'end_time' => $end,
-        'notes' => $request->notes,
-    ]);
-
-    $appointment->services()->sync($request->services);
-
-    return redirect()->route('appointments.index')->with('success', 'Cita actualizada correctamente.');
-}
 
     public function cancel($id)
     {
@@ -119,8 +119,8 @@ class AppointmentController extends Controller
         $appointment = Appointment::create([
             'client_name' => $request->client_name,
             'client_phone' => $request->client_phone,
-            'start_time' => $start,
-            'end_time' => $end,
+            'start_time' => $start->format('Y-m-d H:i:s'),
+            'end_time' => $end->format('Y-m-d H:i:s'),
             'notes' => $request->notes,
             'status' => 'pending',
         ]);
@@ -131,25 +131,25 @@ class AppointmentController extends Controller
         return redirect()->route('appointments.index');
     }
     public function checkAvailability(Request $request)
-{
-    $start = Carbon::parse($request->date . ' ' . $request->time);
-    $services = Service::find($request->services);
-    $totalMinutes = $services ? $services->sum('duration_minutes') : 0;
-    $end = $start->copy()->addMinutes($totalMinutes);
+    {
+        $start = Carbon::parse($request->date . ' ' . $request->time);
+        $services = Service::find($request->services);
+        $totalMinutes = $services ? $services->sum('duration_minutes') : 0;
+        $end = $start->copy()->addMinutes($totalMinutes);
 
-    $exists = Appointment::where(function ($query) use ($start, $end) {
-        $query->where('start_time', '<', $end)
-              ->where('end_time', '>', $start);
-    })
-    ->where('status', '!=', 'cancelled')
-    // Si estamos editando, ignoramos la cita actual
-    ->when($request->appointment_id, function($q) use ($request) {
-        return $q->where('id', '!=', $request->appointment_id);
-    })
-    ->exists();
+        $exists = Appointment::where(function ($query) use ($start, $end) {
+            $query->where('start_time', '<', $end)
+                ->where('end_time', '>', $start);
+        })
+            ->where('status', '!=', 'cancelled')
+            // Si estamos editando, ignoramos la cita actual
+            ->when($request->appointment_id, function ($q) use ($request) {
+                return $q->where('id', '!=', $request->appointment_id);
+            })
+            ->exists();
 
-    return response()->json(['available' => !$exists]);
-}
+        return response()->json(['available' => !$exists]);
+    }
     public function complete($id)
     {
         $appointment = Appointment::findOrFail($id);
