@@ -156,6 +156,7 @@ class AppointmentController extends Controller
     ]);
 }
 }
+
     public function checkAvailability(Request $request)
     {
         $start = Carbon::parse($request->date . ' ' . $request->time);
@@ -176,14 +177,18 @@ class AppointmentController extends Controller
 
         return response()->json(['available' => !$exists]);
     }
-    public function complete($id)
-    {
-        $appointment = Appointment::findOrFail($id);
-        $appointment->status = 'completed';
-        $appointment->save();
+   public function complete(Request $request, $id)
+{
+    $appointment = Appointment::findOrFail($id);
+    
+    // Si la manicurista puso un precio, usamos ese. 
+    // Si no, podemos usar el total sumado de los servicios como respaldo.
+    $appointment->final_price = $request->final_price;
+    $appointment->status = 'completed';
+    $appointment->save();
 
-        return back()->with('success', '¡Cita completada! El ingreso se ha registrado en el sistema.');
-    }
+    return back()->with('success', '¡Cita completada y cobro registrado!');
+}
     public function calendar()
     {
         $appointments = Appointment::with('services')->get();

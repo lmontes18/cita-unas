@@ -399,40 +399,76 @@
                   </span>
                 </td>
                 <td class="al-action-cell">
-                  <div class="al-actions-group">
-                    @if($app->status == 'pending')
-                      {{-- Botón Finalizar --}}
-                      <form action="{{ route('appointments.complete', $app->id) }}" method="POST">
-                        @csrf @method('PATCH')
-                        <button type="submit" class="al-complete-btn" title="Finalizar">
-                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-                      </form>
+    <div class="al-actions-group">
+        @if($app->status == 'pending')
+            {{-- Botón que abre el Modal --}}
+            <button type="button" class="al-complete-btn" title="Finalizar" 
+                    data-bs-toggle="modal" data-bs-target="#modalComplete{{ $app->id }}">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                </svg>
+            </button>
 
-                      {{-- Botón Editar --}}
-                      <a href="{{ route('appointments.edit', $app->id) }}" class="al-edit-btn" title="Editar">
-                        <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                      </a>
+            {{-- El Modal (debe ir dentro del loop o al final) --}}
+            <div class="modal fade" id="modalComplete{{ $app->id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content" style="border-radius: 20px; border: none; background: var(--cream);">
+                        <div class="modal-header" style="border-bottom: 1px solid var(--border);">
+                            <h5 style="font-family: 'Playfair Display'; font-weight: 900; color: var(--ink);">Finalizar Trabajo</h5>
+                        </div>
+                        <form action="{{ route('appointments.complete', $app->id) }}" method="POST">
+                            @csrf @method('PATCH')
+                            <div class="modal-body" style="text-align: left;">
+                                <p style="font-size: 13px; color: var(--slate); margin-bottom: 15px;">
+                                    Cliente: <strong>{{ $app->client_name }}</strong><br>
+                                    Servicio base: L. {{ number_format($app->services->sum('price'), 2) }}
+                                </p>
+                                
+                                <label style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--rose); letter-spacing: 0.1em;">
+                                    Monto Final a Cobrar
+                                </label>
+                                <input type="number" name="final_price" 
+                                       value="{{ $app->services->sum('price') }}" 
+                                       step="0.01"
+                                       class="form-control" 
+                                       style="border-radius: 12px; border: 1px solid var(--border); padding: 12px; font-weight: 600; margin-top: 5px;" 
+                                       required>
+                                <small style="display: block; margin-top: 8px; color: var(--slate); font-style: italic; font-size: 11px;">
+                                    * Puedes modificar el precio si se agregó diseño extra.
+                                </small>
+                            </div>
+                            <div class="modal-footer" style="border-top: 1px solid var(--border); gap: 10px;">
+                                <button type="button" class="al-cancel-btn" style="text-decoration: none;" data-bs-dismiss="modal">Cerrar</button>
+                                <button type="submit" class="al-new-btn" style="padding: 10px 20px; box-shadow: none;">Confirmar Cobro</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
-                      {{-- Botón Cancelar --}}
-                      <form action="{{ route('appointments.cancel', $app->id) }}" method="POST"
-                        onsubmit="return confirm('¿Seguro que deseas cancelar esta cita?')">
-                        @csrf @method('PATCH')
-                        <button type="submit" class="al-cancel-btn">Cancelar</button>
-                      </form>
+            {{-- Botón Editar --}}
+            <a href="{{ route('appointments.edit', $app->id) }}" class="al-edit-btn" title="Editar">
+                <svg style="width:18px;height:18px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+            </a>
 
-                    @elseif($app->status == 'cancelled')
-                      <span class="al-no-action">Cancelada</span>
-                    @else
-                      <span class="al-no-action">Completada</span>
-                    @endif
-                  </div>
-                </td>
+            {{-- Botón Cancelar --}}
+            <form action="{{ route('appointments.cancel', $app->id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas cancelar esta cita?')">
+                @csrf @method('PATCH')
+                <button type="submit" class="al-cancel-btn">Cancelar</button>
+            </form>
+
+        @elseif($app->status == 'cancelled')
+            <span class="al-no-action">Cancelada</span>
+        @else
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <span class="al-no-action" style="color: var(--green); font-weight: 700;">Completada</span>
+                <span style="font-size: 10px; color: var(--slate);">L. {{ number_format($app->final_price, 2) }}</span>
+            </div>
+        @endif
+    </div>
+</td>
               </tr>
             @endforeach
           </tbody>
