@@ -149,14 +149,12 @@ class AppointmentController extends Controller
             ->with('success', 'Cita creada correctamente.');
 
     } catch (\Exception $e) {
-
-        // 🔥 Log (para Vercel logs)
-        \Log::error('Error al crear cita: ' . $e->getMessage());
-
-        return back()->withErrors([
-            'error' => 'Ocurrió un error al crear la cita'
-        ])->withInput();
-    }
+    return response()->json([
+        'message' => $e->getMessage(),
+        'line' => $e->getLine(),
+        'file' => $e->getFile()
+    ]);
+}
 }
     public function checkAvailability(Request $request)
     {

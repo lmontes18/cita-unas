@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
 {
-    protected $fillable = ['service_id', 'client_name', 'client_phone', 'start_time', 'end_time', 'notes', 'status'];
+    protected $fillable = ['client_name', 'client_phone', 'start_time', 'end_time', 'notes', 'status'];
 
 public function services() {
     return $this->belongsToMany(Service::class);
