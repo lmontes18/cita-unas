@@ -85,47 +85,78 @@ class AppointmentController extends Controller
 
         return back()->with('success', 'Cita cancelada correctamente.');
     }
-    public function store(Request $request)
+   public function store(Request $request)
 {
-    $request->validate([
-        'services' => 'required|array',
-        'client_name' => 'required|string',
-        'date' => 'required|date',
-        'time' => 'required',
-    ]);
+    try {
 
-    // 1. Unir y formatear explícitamente como string
-    $start = Carbon::parse($request->date . ' ' . $request->time);
-    
-    $services = Service::find($request->services);
-    $totalMinutes = $services ? $services->sum('duration_minutes') : 0;
-    $end = $start->copy()->addMinutes($totalMinutes);
+        $request->validate([
+            'services' => 'required|array',
+            'services.*' => 'exists:services,id',
+            'client_name' => 'required|string',
+            'date' => 'required|date',
+            'time' => 'required',
+        ]);
 
-    // 2. Validar conflictos (esto está bien)
-    $exists = Appointment::where(function ($query) use ($start, $end) {
+        // 🔥 Unir fecha + hora
+        $start = Carbon::parse($request->date . ' ' . $request->time);
+
+        // 🔥 Obtener servicios correctamente
+        $services = Service::whereIn('id', $request->services)->get();
+
+        if ($services->isEmpty()) {
+            return back()->withErrors([
+                'services' => 'Servicios inválidos'
+            ])->withInput();
+        }
+
+        // Calcular duración total
+        $totalMinutes = $services->sum('duration_minutes');
+        $end = $start->copy()->addMinutes($totalMinutes);
+
+        // 🔥 VALIDAR CONFLICTOS
+        $exists = Appointment::where(function ($query) use ($start, $end) {
             $query->where('start_time', '<', $end)
-                ->where('end_time', '>', $start);
-        })
-        ->where('status', '!=', 'cancelled') // Agregué esto por seguridad
-        ->exists();
+                  ->where('end_time', '>', $start);
+        })->exists();
 
-    if ($exists) {
-        return back()->withErrors(['time' => 'Ya hay una cita en ese horario.'])->withInput();
+        if ($exists) {
+            return back()->withErrors([
+                'time' => 'Ya hay una cita en ese horario.'
+            ])->withInput();
+        }
+
+        // 🔥 Crear cita
+        $appointment = Appointment::create([
+            'client_name' => $request->client_name,
+            'client_phone' => $request->client_phone,
+            'start_time' => $start->format('Y-m-d H:i:s'),
+            'end_time' => $end->format('Y-m-d H:i:s'),
+            'notes' => $request->notes,
+            'status' => 'pending',
+        ]);
+
+        // 🔥 Validar antes de attach
+        if (!is_array($request->services)) {
+            return back()->withErrors([
+                'services' => 'Formato incorrecto'
+            ])->withInput();
+        }
+
+        // 🔥 Relación servicios (más seguro)
+        $appointment->services()->sync($request->services);
+
+        return redirect()->route('appointments.index')
+            ->with('success', 'Cita creada correctamente.');
+
+    } catch (\Exception $e) {
+
+        // 🔥 Log (para Vercel logs)
+        \Log::error('Error al crear cita: ' . $e->getMessage());
+
+        return back()->withErrors([
+            'error' => 'Ocurrió un error al crear la cita'
+        ])->withInput();
     }
-
-    // 3. Crear usando strings para evitar líos con PostgreSQL
-    $appointment = Appointment::create([
-        'client_name' => $request->client_name,
-        'client_phone' => $request->client_phone,
-        'start_time' => $start->toDateTimeString(), // Formato: Y-m-d H:i:s
-        'end_time' => $end->toDateTimeString(),
-        'notes' => $request->notes,
-        'status' => 'pending',
-    ]);
-
-    $appointment->services()->attach($request->services);
-
-    return redirect()->route('appointments.index');
 }
     public function checkAvailability(Request $request)
     {
