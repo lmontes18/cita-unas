@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Appointment;
-use App\Models\Expenses; // Asegúrate de que la 'E' sea mayúscula si así se llama el modelo
+use App\Models\expenses; // Asegúrate de que la 'E' sea mayúscula si así se llama el modelo
 
 class DashboardController extends Controller
 {
